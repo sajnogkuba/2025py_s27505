@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3b4a27c3-07dd-46f8-8337-3386312e4431" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/s27505_2025-2.py" beforeDir="false" afterPath="$PROJECT_DIR$/s27505_2025-2.py" afterDir="false" />
-    </list>
+    <list default="true" id="3b4a27c3-07dd-46f8-8337-3386312e4431" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -47,8 +45,9 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.12 (2025py2_s27505)" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
@@ -84,7 +83,7 @@
       <option name="presentableId" value="Default" />
       <updated>1747298540387</updated>
       <workItem from="1747298541289" duration="42000" />
-      <workItem from="1747298591470" duration="1727000" />
+      <workItem from="1747298591470" duration="1935000" />
     </task>
     <servers />
   </component>
