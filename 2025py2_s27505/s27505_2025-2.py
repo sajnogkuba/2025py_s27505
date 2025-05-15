@@ -20,19 +20,26 @@ class NCBIRetriever:
         Entrez.api_key = api_key
         Entrez.tool = 'BioScriptEx10'
 
-    def search_taxid(self, taxid):
-        """Search for all records associated with a taxonomic ID."""
+    def search_taxid(self, taxid, min_len=None, max_len=None):
+        """Search for all records associated with a taxonomic ID and optional length filter."""
         print(f"Searching for records with taxID: {taxid}")
         try:
-            # Najpierw pobierz informacje taksonomiczne
-            handle = Entrez.efetch(db="taxonomy", id=taxid,
-            retmode="xml")
+            handle = Entrez.efetch(db="taxonomy", id=taxid, retmode="xml")
             records = Entrez.read(handle)
             organism_name = records[0]["ScientificName"]
             print(f"Organism: {organism_name} (TaxID: {taxid})")
 
-            # Szukaj rekordów
+            # Budowanie zapytania
             search_term = f"txid{taxid}[Organism]"
+            if min_len is not None:
+                search_term += f" AND {min_len}:1000000000[Sequence Length]"
+            if max_len is not None:
+                # jeśli podano oba — zamieniamy zakres
+                if min_len is not None:
+                    search_term = f"txid{taxid}[Organism] AND {min_len}:{max_len}[Sequence Length]"
+                else:
+                    search_term += f" AND 0:{max_len}[Sequence Length]"
+
             handle = Entrez.esearch(db="nucleotide", term=search_term, usehistory="y")
             search_results = Entrez.read(handle)
             count = int(search_results["Count"])
@@ -41,13 +48,11 @@ class NCBIRetriever:
                 print(f"No records found for {organism_name}")
                 return None
 
-            print(f"Found {count} records")
+            print(f"Found {count} records matching length criteria")
 
-            # Zapisz wyniki wyszukiwania do późniejszego wykorzystania
             self.webenv = search_results["WebEnv"]
             self.query_key = search_results["QueryKey"]
             self.count = count
-
             return count
 
         except Exception as e:
@@ -94,8 +99,16 @@ def main():
     # Uzyskaj taxid od użytkownika
     taxid = input("Enter taxonomic ID (taxid) of the organism: ")
 
-    # Szukaj rekordów
-    count = retriever.search_taxid(taxid)
+    # Uzyskaj minimalną i maksymalną długość sekwencji
+    min_len = input("Enter minimum sequence length (press Enter to skip): ")
+    max_len = input("Enter maximum sequence length (press Enter to skip): ")
+
+    # Konwersja lub ustawienie None
+    min_len = int(min_len) if min_len.strip().isdigit() else None
+    max_len = int(max_len) if max_len.strip().isdigit() else None
+
+    # Szukaj rekordów z ograniczeniem długości
+    count = retriever.search_taxid(taxid, min_len=min_len, max_len=max_len)
 
     if not count:
         print("No records found. Exiting.")
