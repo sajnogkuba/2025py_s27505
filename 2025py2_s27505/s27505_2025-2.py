@@ -5,9 +5,12 @@ Podstawowy skrypt do łączenia się z NCBI i pobierania rekordów sekwencji
 genetycznych dla danego identyfikatora taksonomicznego.
 """
 
-from Bio import Entrez
+from Bio import Entrez, SeqIO
 import time
 import os
+import matplotlib.pyplot as plt
+import pandas as pd
+from io import StringIO
 
 class NCBIRetriever:
     def __init__(self, email, api_key):
@@ -88,6 +91,31 @@ class NCBIRetriever:
             print(f"Error fetching records: {e}")
             return ""
 
+def generate_csv_from_gb_text(gb_text, csv_filename):
+    handle = StringIO(gb_text)
+    records = SeqIO.parse(handle, "genbank")
+    data = [{"accession": r.id, "length": len(r.seq), "description": r.description} for r in records]
+    pd.DataFrame(data).to_csv(csv_filename, index=False)
+    print(f"Saved {len(data)} records to {csv_filename}")
+
+
+def generate_plot_from_csv(csv_file, png_file):
+    """Generates a line plot of sequence lengths from a CSV file and saves as PNG."""
+    df = pd.read_csv(csv_file)
+    df = df.sort_values(by="length", ascending=False)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(df["accession"], df["length"], marker='o')
+    plt.xticks(rotation=90)
+    plt.xlabel("GenBank Accession")
+    plt.ylabel("Sequence Length")
+    plt.title("Sequence Lengths (sorted)")
+    plt.tight_layout()
+    plt.savefig(png_file)
+    plt.close()
+    print(f"Plot saved to {png_file}")
+
+
 def main():
     # Uzyskaj dane uwierzytelniające
     email = input("Enter your email address for NCBI: ")
@@ -116,14 +144,13 @@ def main():
 
     # Pobierz kilka pierwszych rekordów jako próbkę
     print("\nFetching sample records...")
-    sample_records = retriever.fetch_records(start=0, max_records=5)
+    sample_records = retriever.fetch_records(start=0, max_records=50)
+    csv_file = f"taxid_{taxid}_sample.csv"
+    generate_csv_from_gb_text(sample_records, csv_file)
 
-    # Zapisz do pliku
-    output_file = f"taxid_{taxid}_sample.gb"
-    with open(output_file, "w") as f:
-        f.write(sample_records)
-        
-    print(f"Saved sample records to {output_file}")
+    png_file = f"taxid_{taxid}_plot.png"
+    generate_plot_from_csv(csv_file, png_file)
+    print(f"Saved sample records to {csv_file}")
     print("\nNote: This is just a basic retriever. You need to extend its functionality!")
 if __name__ == "__main__":
     main()
