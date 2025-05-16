@@ -2,93 +2,61 @@ from Bio import Entrez, SeqIO
 import matplotlib.pyplot as plt
 import pandas as pd
 from io import StringIO
-class NCBIRetriever:
+
+
+class Retriever:
     def __init__(self, email, api_key):
-        self.email = email
-        self.api_key = api_key
         Entrez.email = email
         Entrez.api_key = api_key
-        Entrez.tool = 'BioScriptEx10'
-    def search_taxid(self, taxid, min_len=None, max_len=None):
-        print(f"Searching for records with taxID: {taxid}")
-        try:
-            handle = Entrez.efetch(db="taxonomy", id=taxid, retmode="xml")
-            records = Entrez.read(handle)
-            organism_name = records[0]["ScientificName"]
-            print(f"Organism: {organism_name} (TaxID: {taxid})")
-            search_term = f"txid{taxid}[Organism]"
-            if min_len is not None:
-                search_term += f" AND {min_len}:1000000000[Sequence Length]"
-            if max_len is not None:
-                if min_len is not None:
-                    search_term = f"txid{taxid}[Organism] AND {min_len}:{max_len}[Sequence Length]"
-                else:
-                    search_term += f" AND 0:{max_len}[Sequence Length]"
-            handle = Entrez.esearch(db="nucleotide", term=search_term, usehistory="y")
-            search_results = Entrez.read(handle)
-            count = int(search_results["Count"])
-            if count == 0:
-                print(f"No records found for {organism_name}")
-                return None
-            print(f"Found {count} records matching length criteria")
-            self.webenv = search_results["WebEnv"]
-            self.query_key = search_results["QueryKey"]
-            self.count = count
-            return count
-        except Exception as e:
-            print(f"Error searching TaxID {taxid}: {e}")
-            return None
-    def fetch_records(self, start=0, max_records=10):
-        if not hasattr(self, 'webenv') or not hasattr(self,'query_key'):
-            print("No search results to fetch. Run search_taxid() first.")
-            return []
-        try:
-            batch_size = min(max_records, 500)
-            handle = Entrez.efetch(db="nucleotide",rettype="gb",retmode="text",retstart=start,retmax=batch_size,webenv=self.webenv,query_key=self.query_key)
-            records_text = handle.read()
-            return records_text
-        except Exception as e:
-            print(f"Error fetching records: {e}")
-            return ""
-def generate_csv_from_gb_text(gb_text, csv_filename):
-    handle = StringIO(gb_text)
-    records = SeqIO.parse(handle, "genbank")
-    data = [{"accession": r.id, "length": len(r.seq), "description": r.description} for r in records]
-    pd.DataFrame(data).to_csv(csv_filename, index=False)
-    print(f"Saved {len(data)} records to {csv_filename}")
-def generate_plot_from_csv(csv_file, png_file):
-    df = pd.read_csv(csv_file)
-    df = df.sort_values(by="length", ascending=False)
-    plt.figure(figsize=(10, 6))
-    plt.plot(df["accession"], df["length"], marker='o')
+        Entrez.tool = 'gen'
+
+    def search(self, taxid, min_len=None, max_len=None):
+        q = f'txid{taxid}[Organism]'
+        if min_len is not None and max_len is not None:
+            q = f'txid{taxid}[Organism] AND {min_len}:{max_len}[Sequence Length]'
+        elif min_len is not None:
+            q += f' AND {min_len}:1000000000[Sequence Length]'
+        elif max_len is not None:
+            q += f' AND 0:{max_len}[Sequence Length]'
+        r = Entrez.read(Entrez.esearch(db='nucleotide', term=q, usehistory='y'))
+        if not int(r['Count']): return None
+        self.w, self.q, self.c = r['WebEnv'], r['QueryKey'], r['Count']
+        return self.c
+
+    def fetch(self, n=5):
+        return Entrez.efetch(db='nucleotide', rettype='gb', retmode='text',
+                             retstart=0, retmax=n, webenv=self.w, query_key=self.q).read()
+
+
+def save_csv(text, out):
+    d = [{'accession': r.id, 'length': len(r.seq), 'description': r.description}
+         for r in SeqIO.parse(StringIO(text), "genbank")]
+    pd.DataFrame(d).to_csv(out, index=0)
+
+
+def save_plot(csv, out):
+    d = pd.read_csv(csv).sort_values('length', ascending=False)
+    plt.plot(d.accession, d.length, marker='o')
     plt.xticks(rotation=90)
-    plt.xlabel("GenBank Accession")
-    plt.ylabel("Sequence Length")
-    plt.title("Sequence Lengths (sorted)")
     plt.tight_layout()
-    plt.savefig(png_file)
+    plt.savefig(out)
     plt.close()
-    print(f"Plot saved to {png_file}")
+
+
 def main():
-    email = input("Enter your email address for NCBI: ")
-    api_key = input("Enter your NCBI API key: ")
-    retriever = NCBIRetriever(email, api_key)
-    taxid = input("Enter taxonomic ID (taxid) of the organism: ")
-    min_len = input("Enter minimum sequence length (press Enter to skip): ")
-    max_len = input("Enter maximum sequence length (press Enter to skip): ")
-    min_len = int(min_len) if min_len.strip().isdigit() else None
-    max_len = int(max_len) if max_len.strip().isdigit() else None
-    count = retriever.search_taxid(taxid, min_len=min_len, max_len=max_len)
-    if not count:
-        print("No records found. Exiting.")
-        return
-    print("\nFetching sample records...")
-    sample_records = retriever.fetch_records(start=0, max_records=50)
-    csv_file = f"taxid_{taxid}_sample.csv"
-    generate_csv_from_gb_text(sample_records, csv_file)
-    png_file = f"taxid_{taxid}_plot.png"
-    generate_plot_from_csv(csv_file, png_file)
-    print(f"Saved sample records to {csv_file}")
-    print("\nNote: This is just a basic retriever. You need to extend its functionality!")
-if __name__ == "__main__":
-    main()
+    email = input('email: ')
+    key = input('api key: ')
+    taxid = input('taxid: ')
+    min_len = input('min len: ')
+    max_len = input('max len: ')
+    min_len = int(min_len) if min_len.isdigit() else None
+    max_len = int(max_len) if max_len.isdigit() else None
+    r = Retriever(email, key)
+    if not r.search(taxid, min_len, max_len): return
+    txt = r.fetch()
+    csv = f"taxid_{taxid}_sample.csv"
+    save_csv(txt, csv)
+    save_plot(csv, csv.replace('.csv', '.png'))
+
+
+main()
